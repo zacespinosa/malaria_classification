@@ -18,17 +18,17 @@ def median(img, size=6):
   return ndimage.median_filter(img,size)
 
 def gaussian(img, std=5):
-  return ndimage.gaussian_filter(img,std)
+    return ndimage.gaussian_filter(img,std)
 
 def hp(img, c=3, d=3):
-  R = np.full((d,d), -c, dtype=float)
-  R[d/2,d/2] = 8*c
-  return ndimage.convolve(img,R)
+    R = np.full((d,d), -c, dtype=float)
+    R[d/2,d/2] = 8*c
+    return ndimage.convolve(img,R)
 
 def gaussianHP(img, std=6):
-  lpImg = ndimage.gaussian_filter(img,std)
-  hpImg = img - lpImg
-  return hpImg
+    lpImg = ndimage.gaussian_filter(img,std)
+    hpImg = img - lpImg
+    return hpImg
 
 filters = {"identity":identity,
            "mean":mean,
@@ -57,11 +57,15 @@ def preprocess_batch(pipeline, imgs):
     new_imgs = []
     imgs = imgs.tolist()
     for img in imgs:
-        fImg = img
+        fImg = np.array(img)
+        # plt.imshow((fImg).astype(np.uint8))
+        # plt.show()
         for fn in pipeline:
             f = filters[fn]
             fImg = f(fImg)
-        
+            # plt.imshow((fImg).astype(np.uint8))
+            # plt.show()
+
         new_imgs.append(fImg)
 
     return np.array(new_imgs)

@@ -15,8 +15,9 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 # Constants
 IMG_SIZE = 128
 NUM_COMPONENTS = 512
-EPOCHS = 20
+EPOCHS = 10
 batch_size = 128
+val_size = 1000
 TRAIN_EXAMPLES = 26560
 
 def reshape_and_flatten(imgs): 
@@ -44,32 +45,31 @@ def reshape_and_flatten(imgs):
 
     return new_imgs 
 
-def apply_pca(train, val):
+def apply_pca(train):
     pca = PCA(n_components=NUM_COMPONENTS)
     new_train = pca.fit_transform(train)
-    new_val = pca.transform(val)
 
-    plt.plot(np.cumsum(pca.explained_variance_ratio_))
-    plt.xlabel('Number of components')
-    plt.ylabel('Cumulative explained variance')
-    plt.show()
+    # plt.plot(np.cumsum(pca.explained_variance_ratio_))
+    # plt.xlabel('Number of components')
+    # plt.ylabel('Cumulative explained variance')
+    # plt.show()
 
-    Visualize Difference
-    for i in range(10): visualize(i, train, pca, new_train)
+    # Visualize Difference
+    # for i in range(10): visualize(i, train, pca, new_train)
 
-    return new_train, new_val, pca
+    return new_train, pca
 
 """
 In order to visualize the PCA images we used the following tutorial: 
 https://www.kaggle.com/pmmilewski/pca-decomposition-and-keras-neural-network
 """
 def visualize(i, train, pca, new_train):
-    org = train[i].reshape(IMG_SIZE,square_size, 3)
+    org = train[i].reshape(IMG_SIZE, IMG_SIZE, 3)
     inv_train = pca.inverse_transform(new_train)
-    rec = inv_train[i].reshape(IMG_SIZE, square_size, 3)
+    rec = inv_train[i].reshape(IMG_SIZE, IMG_SIZE, 3)
     pair = np.concatenate((org, rec), axis=1)
     plt.figure(figsize=(4,2))
-    plt.imshow(pair)
+    plt.imshow((pair*255).astype(np.uint8))
     plt.show()
 
 def create_linear_model(): 
@@ -93,7 +93,7 @@ def run_linear_model(model, train_gen, train_dataset, pca, val_data, val_labels)
         tot_acc = 0 
         for j in range(num_batches):
             batch_data, batch_labels = next(train_gen)
-            print('Starting batch ', j, '/', num_batches)
+            # print('Starting batch ', j, '/', num_batches)
             if batch_data.shape[0] != batch_size: continue # skip last batch
             # Apply Filters to Batch 
             batch_data = pipeline.preprocess_batch(['gaussianHP', 'gaussian'], batch_data)
@@ -126,10 +126,9 @@ dim_reduction = {
     "pca": apply_pca,
 }
 
-
 def main(reduction):
     # Get datasets
-    datasets = pipeline.Datasets(load=True, num_examples=1000)
+    datasets = pipeline.Datasets(load=True, num_examples=500)
     train_dataset = datasets.train
     validation_dataset = datasets.validation
 
@@ -138,21 +137,35 @@ def main(reduction):
     train_uninfected_flatten = reshape_and_flatten(train_dataset.imgs["Uninfected"])
     train_data, train_labels = labels_and_shuffle(train_infected_flatten, train_uninfected_flatten)
 
-    val_infected_flatten = reshape_and_flatten(validation_dataset.imgs["Infected"])
-    val_uninfected_flatten = reshape_and_flatten(validation_dataset.imgs["Uninfected"])
-    val_data, val_labels = labels_and_shuffle(val_infected_flatten, val_uninfected_flatten)
+    # val_infected_flatten = reshape_and_flatten(validation_dataset.imgs["Infected"])
+    # val_uninfected_flatten = reshape_and_flatten(validation_dataset.imgs["Uninfected"])
+    # val_data, val_labels = labels_and_shuffle(val_infected_flatten, val_uninfected_flatten)
 
     # Apply PCA 
-    train_data, val_data, pca = apply_pca(train_data, val_data)
+    train_data, pca = apply_pca(train_data)
 
     # Generator for our training data; normalize images
     train_image_generator = ImageDataGenerator(rescale=1./255)
+    val_image_generator = ImageDataGenerator(rescale=1./255)
 
     train_data_gen = train_image_generator.flow_from_directory(batch_size=batch_size,
                                                            directory=train_dataset.get_dir(),
                                                            shuffle=True,
                                                            target_size=(IMG_SIZE, IMG_SIZE),
                                                            class_mode='binary')
+
+    val_data_gen = train_image_generator.flow_from_directory(batch_size=val_size,
+                                                           directory=validation_dataset.get_dir(),
+                                                           shuffle=True,
+                                                           target_size=(IMG_SIZE, IMG_SIZE),
+                                                           class_mode='binary')
+    
+    val_data, val_labels = next(val_data_gen)
+    val_data = pipeline.preprocess_batch(['gaussianHP', 'gaussian'], val_data)
+    # Flatten
+    val_data = val_data.reshape(val_size, 128*128*3)
+    # Reduce
+    val_data = pca.transform(val_data)
 
     # Train and Test Model
     model = create_linear_model()
