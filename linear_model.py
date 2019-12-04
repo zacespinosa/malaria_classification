@@ -49,17 +49,20 @@ def apply_pca(train, val):
     new_train = pca.fit_transform(train)
     new_val = pca.transform(val)
 
-    # plt.plot(np.cumsum(pca.explained_variance_ratio_))
-    # plt.xlabel('Number of components')
-    # plt.ylabel('Cumulative explained variance')
-    # plt.show()
+    plt.plot(np.cumsum(pca.explained_variance_ratio_))
+    plt.xlabel('Number of components')
+    plt.ylabel('Cumulative explained variance')
+    plt.show()
 
-    # Visualize Difference
-    # for i in range(10): visualize(i, train, pca, new_train)
+    Visualize Difference
+    for i in range(10): visualize(i, train, pca, new_train)
 
     return new_train, new_val, pca
 
-# https://www.kaggle.com/pmmilewski/pca-decomposition-and-keras-neural-network
+"""
+In order to visualize the PCA images we used the following tutorial: 
+https://www.kaggle.com/pmmilewski/pca-decomposition-and-keras-neural-network
+"""
 def visualize(i, train, pca, new_train):
     org = train[i].reshape(IMG_SIZE,square_size, 3)
     inv_train = pca.inverse_transform(new_train)
